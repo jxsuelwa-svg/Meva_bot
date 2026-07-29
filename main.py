@@ -26,7 +26,63 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("No tienes autorización para usar este bot.")
         return
     
-    await update.message.reply_text("¡Hola! Bot conectado correctamente y listo para usar con SMS-Activate.")
+    await update.message.reply_text(
+        "¡Hola! Bot conectado correctamente.\n\n"
+        "Comandos disponibles:\n"
+        "👉 `/comprar [pais]` (Ejemplo: `/comprar colombia`)"
+    )
+
+# ==================== COMANDO COMPRAR ====================
+async def comprar(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    if user_id not in ADMIN_IDS:
+        await update.message.reply_text("No tienes autorización para usar este bot.")
+        return
+
+    # Verificar si escribió el país
+    if not context.args:
+        paises_disponibles = ", ".join(PAISES_IDS.keys())
+        await update.message.reply_text(
+            f"Debes indicar un país.\nPaíses disponibles: {paises_disponibles}\n"
+            f"Uso correcto: `/comprar colombia`"
+        )
+        return
+
+    pais_input = context.args[0].lower()
+    if pais_input not in PAISES_IDS:
+        await update.message.reply_text("País no válido. Revisa los países disponibles con `/start`.")
+        return
+
+    country_id = PAISES_IDS[pais_input]
+
+    # Petición a la API de SMS-Activate para obtener el número
+    url = f"https://api.sms-activate.org/stt/stt_api.php?api_key={SMS_ACTIVATE_API_KEY}&action=getNumber&service={SERVICE_ID}&country={country_id}"
+    
+    try:
+        response = requests.get(url)
+        texto_respuesta = response.text
+
+        if "ACCESS_NUMBER" in texto_respuesta:
+            partes = texto_respuesta.split(":")
+            activation_id = partes[1]
+            phone_number = partes[2]
+            
+            await update.message.reply_text(
+                f"✅ ¡Número adquirido con éxito!\n\n"
+                f"🌍 País: {pais_input.capitalize()}\n"
+                f"📞 Número: `+{phone_number}`\n"
+                f"🆔 ID de activación: `{activation_id}`",
+                parse_mode="Markdown"
+            )
+        elif "NO_NUMBERS" in texto_respuesta:
+            await update.message.reply_text("❌ No hay números disponibles en este momento para ese país.")
+        elif "NO_BALANCE" in texto_respuesta:
+            await update.message.reply_text("❌ Saldo insuficiente en tu cuenta de SMS-Activate.")
+        else:
+            await update.message.reply_text(f"⚠️ Respuesta de la API: {texto_respuesta}")
+
+    except Exception as e:
+        await update.message.reply_text(f"❌ Ocurrió un error de conexión con la API: {str(e)}")
 
 # ==================== INICIO DEL BOT ====================
 def main():
@@ -34,8 +90,9 @@ def main():
 
     # Registrar comandos
     application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("comprar", comprar))
 
-    # Iniciar el bucle para mantener el bot activo en Render
+    # Iniciar el bot
     print("Iniciando bot...")
     application.run_polling()
 
