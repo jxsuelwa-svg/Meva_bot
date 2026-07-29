@@ -9,7 +9,7 @@ PAYPAL_ME_LINK = "https://paypal.me/TuUsuarioPayPal"
 # Tu ID de administrador
 ADMIN_IDS = [7390841762]
 
-# Catálogo basado en las capturas anteriores
+# Catálogo exacto basado en tus capturas
 CATALOGO = {
     "android": {
         "nombre": "🤖 PANEL STORE — 🤖 Android",
@@ -32,13 +32,43 @@ CATALOGO = {
                     "7d": {"tiempo": "7 Days", "sold_out": True},
                     "14d": {"tiempo": "14 Days", "precio": 636}
                 }
+            },
+            "proxy_server": {
+                "nombre": "PROXY SERVER [DR-CL]",
+                "planes": {
+                    "1d": {"tiempo": "1 Day", "sold_out": True},
+                    "3d": {"tiempo": "3 Days", "sold_out": True},
+                    "7d": {"tiempo": "7 Days", "precio": 342},
+                    "30d": {"tiempo": "30 Days", "sold_out": True}
+                }
+            }
+        }
+    },
+    "iphone": {
+        "nombre": "🍏 PANEL STORE — 🍏 iPhone",
+        "productos": {
+            "aimsilent_iphone": {
+                "nombre": "AIMSILENT EXE (STREAMER)",
+                "planes": {
+                    "7d": {"tiempo": "7 Days", "sold_out": True},
+                    "15d": {"tiempo": "15 Days", "precio": 587},
+                    "30d": {"tiempo": "30 Days", "precio": 979}
+                }
+            },
+            "basic_iphone": {
+                "nombre": "BASIC (STREAMPROOF + SAFE )",
+                "planes": {
+                    "7d": {"tiempo": "7 Days", "sold_out": True},
+                    "15d": {"tiempo": "15 Days", "precio": 587},
+                    "30d": {"tiempo": "30 Days", "precio": 979}
+                }
             }
         }
     },
     "pc": {
         "nombre": "💻 PANEL STORE — 💻 PC",
         "productos": {
-            "aimsilent": {
+            "aimsilent_pc": {
                 "nombre": "AIMSILENT EXE (STREAMER)",
                 "planes": {
                     "1d": {"tiempo": "1 Day", "precio": 120},
@@ -69,10 +99,10 @@ async def mostrar_menu_principal(update_or_query, context: ContextTypes.DEFAULT_
     saldo = saldos_usuarios.get(user_id, 0.0)
 
     texto = (
-        f"🎉 **Yo {user_name}, Welcome Back!!**\n\n"
+        f"🎉 **Hola {user_name}, Welcome Back!!**\n\n"
         f"━━━━━━━━━━━━━━━━━━━\n\n"
         f"▫️ **PIN de cliente: N{user_id}**\n"
-        f"💰 **Meu saldo é: ₹{saldo:.2f}**\n\n"
+        f"💰 **Tu Saldo Actual: ₹{saldo:.2f}**\n\n"
         f"━━━━━━━━━━━━━━━━━━━\n\n"
         f"❓ **Why our store is trusted?**\n"
         f"└ Direct deals with every mod developer\n"
@@ -174,7 +204,7 @@ async def boton_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 cb_data = "sold_out_alert"
             else:
                 btn_text = f"⏱ {plan_val['tiempo']} — ₹{plan_val['precio']}"
-                cb_data = f"buy_{cat_id}_{prod_key}_{plan_key}"
+                cb_data = f"sim_buy_{cat_id}_{prod_key}_{plan_key}"
             keyboard.append([InlineKeyboardButton(btn_text, callback_data=cb_data)])
         
         keyboard.append([InlineKeyboardButton("🎬 Watch Gameplay Video", url="https://youtube.com")])
@@ -191,9 +221,31 @@ async def boton_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif data == "sold_out_alert":
         await query.answer("❌ This plan is currently Sold Out!", show_alert=True)
 
-    elif data.startswith("buy_"):
+    elif data.startswith("sim_buy_"):
         partes = data.split("_")
-        cat_id, prod_key, plan_key = partes[1], partes[2], partes[3]
+        cat_id, prod_key, plan_key = partes[2], partes[3], partes[4]
+        prod_info = CATALOGO[cat_id]["productos"][prod_key]
+        plan_info = prod_info["planes"][plan_key]
+        precio = plan_info["precio"]
+        
+        keyboard = [
+            [InlineKeyboardButton("✅ Confirm & Buy (Generate Key)", callback_data=f"exec_buy_{cat_id}_{prod_key}_{plan_key}")],
+            [InlineKeyboardButton("❌ Cancel", callback_data=f"prod_{cat_id}_{prod_key}")]
+        ]
+        await query.edit_message_text(
+            text=f"🛒 **Confirm Purchase**\n\n"
+                 f"📦 Product: **{prod_info['nombre']}**\n"
+                 f"⏱ Plan: **{plan_info['tiempo']}**\n"
+                 f"💵 Price: **₹{precio}**\n"
+                 f"💰 Your Balance: **₹{saldos_usuarios.get(user_id, 0.0):.2f}**\n\n"
+                 f"Do you want to proceed?",
+            reply_markup=InlineKeyboardMarkup(keyboard),
+            parse_mode="Markdown"
+        )
+
+    elif data.startswith("exec_buy_"):
+        partes = data.split("_")
+        cat_id, prod_key, plan_key = partes[2], partes[3], partes[4]
         await procesar_compra_key(query, user_id, cat_id, prod_key, plan_key)
 
     elif data == "menu_recargar":
@@ -256,7 +308,7 @@ async def boton_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode="Markdown"
         )
 
-# ==================== GENERACIÓN AUTOMÁTICA DE KEYS ====================
+# ==================== GENERACIÓN DE KEYS ====================
 async def procesar_compra_key(query, user_id, cat_id, prod_key, plan_key):
     prod_info = CATALOGO[cat_id]["productos"][prod_key]
     plan_info = prod_info["planes"][plan_key]
@@ -267,15 +319,17 @@ async def procesar_compra_key(query, user_id, cat_id, prod_key, plan_key):
     saldo_actual = saldos_usuarios.get(user_id, 0.0)
 
     if saldo_actual < precio:
-        keyboard = [[InlineKeyboardButton("⬅️ Back to Shop", callback_data=f"prod_{cat_id}_{prod_key}")]]
+        keyboard = [[InlineKeyboardButton("💳 Top Up Balance", callback_data="menu_recargar")],
+                    [InlineKeyboardButton("⬅️ Back to Shop", callback_data=f"prod_{cat_id}_{prod_key}")]]
         await query.edit_message_text(
-            text=f"❌ **Insufficient Balance!**\nRequired: `₹{precio}`\nYour Balance: `₹{saldo_actual}`",
+            text=f"❌ **Insufficient Balance!**\n\n"
+                 f"Required: `₹{precio}`\n"
+                 f"Your Balance: `₹{saldo_actual}`",
             reply_markup=InlineKeyboardMarkup(keyboard),
             parse_mode="Markdown"
         )
         return
 
-    # Descontar saldo y generar Key única
     saldos_usuarios[user_id] = saldo_actual - precio
     nueva_key = f"PANEL-{str(uuid.uuid4()).upper()[:16]}"
 
@@ -338,7 +392,7 @@ def main():
     application.add_handler(CommandHandler("agregar", agregar_saldo))
     application.add_handler(CallbackQueryHandler(boton_callback))
 
-    print("Iniciando bot estilo Panel Store con PIN de cliente...")
+    print("Iniciando bot con catálogo completo y simulador de compras...")
     application.run_polling()
 
 if __name__ == "__main__":
