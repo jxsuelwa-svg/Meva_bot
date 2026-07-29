@@ -6,7 +6,7 @@ from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, Callb
 TELEGRAM_BOT_TOKEN = "8423978432:AAGPiQbhmD3C1i9F7Q97mr-37SeqG0x1038"
 SMS_ACTIVATE_API_KEY = "EAc7fAdece652bd7d539A5bb"
 
-# Reemplaza esto con tu enlace de PayPal.Me (Ejemplo: "https://paypal.me/tucuenta")
+# Reemplaza esto con tu enlace de PayPal.Me real
 PAYPAL_ME_LINK = "https://paypal.me/TuUsuarioPayPal"
 
 ADMIN_IDS = [7390841762]
@@ -30,7 +30,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     
     await update.message.reply_text(
-        "¡Hola! Bot conectado correctamente.\n\n"
+        "¡Hola! Bot reconectado y activo.\n\n"
         "📋 **Comandos disponibles:**\n"
         "👉 `/comprar [pais]` - Compra un número (Cuesta $1.00)\n"
         "👉 `/saldo` - Consulta tu saldo actual\n"
@@ -46,11 +46,9 @@ async def ver_saldo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # ==================== COMANDO PAGAR CON PAYPAL ====================
 async def pagar_paypal(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    
     if not context.args:
         await update.message.reply_text(
-            "❌ Debes indicar la cantidad que deseas recargar.\n"
+            "❌ Debes indicar la cantidad.\n"
             "Uso correcto: `/pagar 5` (para recargar $5 USD)"
         )
         return
@@ -60,10 +58,9 @@ async def pagar_paypal(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if cantidad <= 0:
             raise ValueError()
     except ValueError:
-        await update.message.reply_text("❌ Por favor, introduce una cantidad válida mayor a 0. Ejemplo: `/pagar 10`")
+        await update.message.reply_text("❌ Introduce una cantidad válida mayor a 0. Ejemplo: `/pagar 10`")
         return
 
-    # Crear enlace de PayPal.Me con la cantidad exacta en USD
     enlace_pago = f"{PAYPAL_ME_LINK}/{cantidad}USD"
 
     keyboard = [
@@ -74,9 +71,8 @@ async def pagar_paypal(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(
         f"🛒 **Recarga de Saldo vía PayPal**\n\n"
-        f"👤 Usuario ID: `{user_id}`\n"
         f"💵 Monto a recargar: `${cantidad:.2f} USD`\n\n"
-        f"Haz clic en el botón de abajo para realizar tu pago en PayPal. Una vez pagado, presiona el botón de notificación para que el administrador te acredite el saldo.",
+        f"Haz clic en el botón para pagar y luego presiona 'Ya pagué' para avisar.",
         reply_markup=reply_markup,
         parse_mode="Markdown"
     )
@@ -87,20 +83,19 @@ async def boton_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
 
     datos = query.data.split("_")
-    if datos[0] == "notificar" and datos[1] == "pago":
+    if len(datos) >= 3 and datos[0] == "notificar" and datos[1] == "pago":
         cantidad = datos[2]
         user_id = query.from_user.id
         username = query.from_user.username or query.from_user.first_name
 
-        # Enviar aviso al administrador
         for admin_id in ADMIN_IDS:
             try:
                 await context.bot.send_message(
                     chat_id=admin_id,
                     text=f"🔔 **¡Nuevo aviso de pago!**\n\n"
                          f"👤 Usuario: @{username} (`{user_id}`)\n"
-                         f"💵 Monto reportado: `${cantidad} USD`\n\n"
-                         f"Usa el comando para aprobarlo:\n"
+                         f"💵 Monto: `${cantidad} USD`\n\n"
+                         f"Usa este comando para aprobarlo:\n"
                          f"`/agregar {user_id} {cantidad}`",
                     parse_mode="Markdown"
                 )
@@ -108,8 +103,7 @@ async def boton_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 pass
 
         await query.edit_message_text(
-            text="✅ ¡Notificación enviada al administrador con éxito!\n"
-                 "En breve se verificará tu pago y se acreditará tu saldo."
+            text="✅ ¡Notificación enviada al administrador con éxito!\nEn breve se acreditará tu saldo."
         )
 
 # ==================== COMANDO AGREGAR SALDO (ADMIN) ====================
@@ -142,7 +136,6 @@ async def agregar_saldo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode="Markdown"
     )
 
-    # Opcional: Avisarle al usuario que ya se le acreditó
     try:
         await context.bot.send_message(
             chat_id=target_user_id,
@@ -184,11 +177,10 @@ async def comprar(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     country_id = PAISES_IDS[pais_input]
-
     url = f"https://api.sms-activate.org/stt/stt_api.php?api_key={SMS_ACTIVATE_API_KEY}&action=getNumber&service={SERVICE_ID}&country={country_id}"
     
     try:
-        response = requests.get(url)
+        response = requests.get(url, timeout=10)
         texto_respuesta = response.text
 
         if "ACCESS_NUMBER" in texto_respuesta:
@@ -214,7 +206,7 @@ async def comprar(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(f"⚠️ Respuesta de la API: {texto_respuesta}")
 
     except Exception as e:
-        await update.message.reply_text(f"❌ Ocurrió un error de conexión con la API: {str(e)}")
+        await update.message.reply_text(f"❌ Error temporal de conexión con SMS-Activate. Inténtalo de nuevo en unos minutos.")
 
 # ==================== INICIO DEL BOT ====================
 def main():
