@@ -35,7 +35,7 @@ def main():
     # Registrar comandos
     application.add_handler(CommandHandler("start", start))
 
-    # Iniciar el bot en segundo plano para que Render no lo cierre
+    # Iniciar el bucle para mantener el bot activo en Render
     print("Iniciando bot...")
     application.run_polling()
 
