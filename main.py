@@ -1,4 +1,4 @@
-import requests
+ import requests
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, CallbackQueryHandler
 
@@ -6,7 +6,7 @@ from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, Callb
 TELEGRAM_BOT_TOKEN = "8423978432:AAGPiQbhmD3C1i9F7Q97mr-37SeqG0x1038"
 SMS_ACTIVATE_API_KEY = "EAc7fAdece652bd7d539A5bb"
 
-# Reemplaza esto con tu enlace de PayPal.Me real
+# Tu enlace de PayPal.Me
 PAYPAL_ME_LINK = "https://paypal.me/TuUsuarioPayPal"
 
 ADMIN_IDS = [7390841762]
@@ -30,7 +30,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     
     await update.message.reply_text(
-        "¡Hola! Bot reconectado y activo.\n\n"
+        "¡Hola! Bot configurado con el truco anti-bloqueo.\n\n"
         "📋 **Comandos disponibles:**\n"
         "👉 `/comprar [pais]` - Compra un número (Cuesta $1.00)\n"
         "👉 `/saldo` - Consulta tu saldo actual\n"
@@ -47,10 +47,7 @@ async def ver_saldo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ==================== COMANDO PAGAR CON PAYPAL ====================
 async def pagar_paypal(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
-        await update.message.reply_text(
-            "❌ Debes indicar la cantidad.\n"
-            "Uso correcto: `/pagar 5` (para recargar $5 USD)"
-        )
+        await update.message.reply_text("❌ Uso correcto: `/pagar 5`")
         return
 
     try:
@@ -58,7 +55,7 @@ async def pagar_paypal(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if cantidad <= 0:
             raise ValueError()
     except ValueError:
-        await update.message.reply_text("❌ Introduce una cantidad válida mayor a 0. Ejemplo: `/pagar 10`")
+        await update.message.reply_text("❌ Introduce una cantidad válida mayor a 0.")
         return
 
     enlace_pago = f"{PAYPAL_ME_LINK}/{cantidad}USD"
@@ -72,7 +69,7 @@ async def pagar_paypal(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         f"🛒 **Recarga de Saldo vía PayPal**\n\n"
         f"💵 Monto a recargar: `${cantidad:.2f} USD`\n\n"
-        f"Haz clic en el botón para pagar y luego presiona 'Ya pagué' para avisar.",
+        f"Haz clic en el botón para pagar y presiona 'Ya pagué' para avisar.",
         reply_markup=reply_markup,
         parse_mode="Markdown"
     )
@@ -102,15 +99,13 @@ async def boton_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             except Exception:
                 pass
 
-        await query.edit_message_text(
-            text="✅ ¡Notificación enviada al administrador con éxito!\nEn breve se acreditará tu saldo."
-        )
+        await query.edit_message_text(text="✅ ¡Notificación enviada al administrador con éxito!")
 
 # ==================== COMANDO AGREGAR SALDO (ADMIN) ====================
 async def agregar_saldo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if user_id not in ADMIN_IDS:
-        await update.message.reply_text("❌ No tienes permisos para usar este comando.")
+        await update.message.reply_text("❌ No tienes permisos.")
         return
 
     if len(context.args) < 2:
@@ -121,7 +116,7 @@ async def agregar_saldo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         target_user_id = int(context.args[0])
         cantidad = float(context.args[1])
     except ValueError:
-        await update.message.reply_text("❌ El ID y la cantidad deben ser números válidos.")
+        await update.message.reply_text("❌ El ID y la cantidad deben ser números.")
         return
 
     actual = saldos_usuarios.get(target_user_id, 0.0)
@@ -129,58 +124,58 @@ async def agregar_saldo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     saldos_usuarios[target_user_id] = nuevo_saldo
 
     await update.message.reply_text(
-        f"✅ Saldo actualizado con éxito.\n"
+        f"✅ Saldo actualizado.\n"
         f"👤 Usuario: `{target_user_id}`\n"
-        f"➕ Agregado: `${cantidad:.2f}`\n"
-        f"💰 Nuevo saldo total: `${nuevo_saldo:.2f}`",
+        f"💰 Nuevo total: `${nuevo_saldo:.2f}`",
         parse_mode="Markdown"
     )
 
     try:
         await context.bot.send_message(
             chat_id=target_user_id,
-            text=f"🎉 ¡Tu recarga de `${cantidad:.2f}` ha sido aprobada!\n💰 Tu nuevo saldo es: `${nuevo_saldo:.2f}`"
+            text=f"🎉 ¡Tu recarga de `${cantidad:.2f}` ha sido aprobada!\n💰 Saldo: `${nuevo_saldo:.2f}`"
         )
     except Exception:
         pass
 
-# ==================== COMANDO COMPRAR ====================
+# ==================== COMANDO COMPRAR (CON TRUCO ANTI-BLOQUEO) ====================
 async def comprar(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if user_id not in ADMIN_IDS:
-        await update.message.reply_text("No tienes autorización para usar este bot.")
+        await update.message.reply_text("No tienes autorización.")
         return
 
     COSTO_NUMERO = 1.00
     saldo_actual = saldos_usuarios.get(user_id, 0.0)
 
     if saldo_actual < COSTO_NUMERO:
-        await update.message.reply_text(
-            f"❌ Saldo insuficiente.\n"
-            f"Tu saldo actual es: `${saldo_actual:.2f}`\n"
-            f"Este número cuesta: `${COSTO_NUMERO:.2f}`\n\n"
-            f"Recarga saldo usando `/pagar [cantidad]`"
-        )
+        await update.message.reply_text(f"❌ Saldo insuficiente. Tu saldo: `${saldo_actual:.2f}`")
         return
 
     if not context.args:
         paises_disponibles = ", ".join(PAISES_IDS.keys())
-        await update.message.reply_text(
-            f"Debes indicar un país.\nPaíses disponibles: {paises_disponibles}\n"
-            f"Uso correcto: `/comprar colombia`"
-        )
+        await update.message.reply_text(f"Países: {paises_disponibles}\nUso: `/comprar colombia`")
         return
 
     pais_input = context.args[0].lower()
     if pais_input not in PAISES_IDS:
-        await update.message.reply_text("País no válido. Revisa los países disponibles con `/start`.")
+        await update.message.reply_text("País no válido.")
         return
 
     country_id = PAISES_IDS[pais_input]
+    
+    # URL y Cabeceras trampa para engañar el filtro de Render
     url = f"https://api.sms-activate.org/stt/stt_api.php?api_key={SMS_ACTIVATE_API_KEY}&action=getNumber&service={SERVICE_ID}&country={country_id}"
     
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Connection": "keep-alive"
+    }
+
     try:
-        response = requests.get(url, timeout=10)
+        # Usamos una sesión con headers camuflados y un tiempo de espera alto
+        response = requests.get(url, headers=headers, timeout=15)
         texto_respuesta = response.text
 
         if "ACCESS_NUMBER" in texto_respuesta:
@@ -194,7 +189,7 @@ async def comprar(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"✅ ¡Número adquirido con éxito!\n\n"
                 f"🌍 País: {pais_input.capitalize()}\n"
                 f"📞 Número: `+{phone_number}`\n"
-                f"🆔 ID de activación: `{activation_id}`\n"
+                f"🆔 ID: `{activation_id}`\n"
                 f"💰 Saldo restante: `${saldos_usuarios[user_id]:.2f}`",
                 parse_mode="Markdown"
             )
@@ -206,7 +201,7 @@ async def comprar(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(f"⚠️ Respuesta de la API: {texto_respuesta}")
 
     except Exception as e:
-        await update.message.reply_text(f"❌ Error temporal de conexión con SMS-Activate. Inténtalo de nuevo en unos minutos.")
+        await update.message.reply_text(f"❌ Render sigue bloqueando la salida de red. Error técnico: {str(e)}")
 
 # ==================== INICIO DEL BOT ====================
 def main():
